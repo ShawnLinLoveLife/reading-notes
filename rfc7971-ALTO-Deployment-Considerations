@@ -1,0 +1,138 @@
+ALTO 目标 让应用程序在一些候选通信主机中选择一个或者几个主机，进行通信，从而优化应用程序性能，减低网络提供者的网络开销。
+
+考虑问题的方面包括：Use cases和Operational issues
+比如：ALTO服务器的位置，ALTO服务器负载，谁初始查询
+
+本文干了啥：
+1. 讨论use cases和operational issues（ALTO server的位置，ALTO server的负载，谁先开始通信）
+2. 告诉读者ALTO services要如何使用，提出已知挑战，告诉部署经验（如何生成network和cost map）
+3. 补充ALTO的管理方面的思考
+
+具体一点
+1. （一个回顾）介绍一般情况下的ALTO的部署，不放到应用场景里Figure 1，概念的介绍，Resource Consumer和ALTO client的区别
+    1. 为什么要说consumer和ALTO client区别是因为 ALTO client的位置可以位于传输信息的主机上或者resource directory。见图Figure2 Figure3
+    2. 在同一个传输的主机上优点（没有tracker的p2p应用）：，缺点：
+    3. 在resource directory上优点（有tracker的p2p应用/CDN）：ALTO server的负载较小，可能的ALTO client数目较少，较静态
+
+2.  ALTO部署需要四个实体 拓扑信息源，ALTO server，ALTO client，Resource consumer（这么设计是因为不同厂商可以管理不同的实体）
+    1. 不同实体之间如何交互（1-3 ALTO server和ALTO client）
+        1. 可行的信任模型（ALTO server和ALTO client属于同一个公司，不属于同一个公司是不同的）
+        2. 用户组的组成，ALTO server只给一些出名的ALTO client提供，给属于不同组的ALTO client提供不同的信息
+        3. Covered destinations，这不是就是filtered cost map？
+    2. ALTO server如何操作？
+        1. ALTO server操作者 网络管理员（拓扑信息源和ALTO server属于相同的组织ISP）、第三方（与ISP签协议，获得拓扑信息）、用户社区（拓扑信息源不来自ISP）
+    3. ATLO server给ALTO client的信息如何暴露？
+        1. provider-defined cost values，ALTO client不需要提供额外信息，cost map/ network map（好处看不懂Page 11）
+        2. ALTO server收到ALTO client发的请求（该请求包含client提供的额外信息），然后计算出一个结果返回给ALTO client （好处，给ALTO client提供更少的拓扑信息）
+        3. 优点与缺点 详见3.3
+    4. ALTO Client的角度来考虑
+        1. 请求一个metric从一个service instance
+        2. 请求多个metric从一个service instance
+        3. 请求一个metric从多个service instances（问题，如何组合收到的信息）
+    5. ALTO service之间的同步
+        1. authoritative server，一个ALTO server提供了所有的信息
+        2. Cascaded server，一个ALTO server自身包含ALTO client，它查询别的ALTO server来获取更多信息。校园网、ISP网的例子
+        3. ALTO server之间的同步
+
+3. ISP的部署考虑
+    1. 为什么要部署ALTO（部署ALTO的目标） 如何部署ALTO service，然后会产生什么影响、意义。ALTO server的管理员能够表达他的preference来影响应用程序。做这些preference的优化目标有
+        1. Inter-network traffic localization 流量本地化 少跨运营商 Figure5
+        2. Intra-network traffic localization  （需要补充一张运营商网络的架构图） aggregation, metro, and access networks Figure6
+        3. Network offloading 移动网络和固定网络，更喜欢固定网络 Figure7
+        4. Application tuning（应用程序调整）network-aware selection of CDN caches。？？？为什么我应用程序要相信你ALTO server提供的信息呢？？？
+    2. 如何获得ALTO的拓扑信息
+        1. High level的步骤、以及需求（这个逻辑有点乱）
+            1. 收集信息
+            2. 提供信息的时候要注意拓扑的隐私
+        2. 从数据源获取数据
+            1. 从网络收集需要的信息（数据源路由协议，网络策略，状态和性能信息，地理位置信息等，BGP Speaker, I2RS Client, PCE, NMS OSS）
+                1. 通过监听IGPs and/or peering with BGP speakers（RFC7752）, link-state protocols更好，因为每一个router会有整个网络的信息。（需要补充的知识协议的分类）distance-vector的路由不太好，因为要从整个网络的交换机里读信息
+                2. I2RS（RFC7922）
+                3. PCE 拓扑和traffic-related消息能够从TED（Traffic Engineering Database）何LSP-DB（Label Switched Path Database）中获取
+                4. Network Management System或者Operations Support System
+            2. 自动生成ALTO抽象网络拓扑
+            3. Partitioning and Grouping of IP Address Ranges
+            4. Rating Criteria and/or Cost Calculation
+                1. 举了一个routingcost的算法 ！！！基于路由协议信息
+                    1. IGP提供一个给定网络内的ep和links信息，BGP提供link到别的网络的信息
+                2. 网络的状态、情况、操作信息，链路利用率、带宽、延时等等 详见”ALTO Cost Metric Registry [ALTO-REG]”
+                3. Distance-related rating criteria
+                    1. 相对拓扑距离
+                    2. 绝对拓扑距离，经过几个AS
+                    3. 经过几个路由
+                    4. 物理距离
+                4. Performance-related rating criteria
+                    1. 最小能够达到的吞吐量
+                    2. 吞吐量上限
+                    3. 最大RTT
+                    4. RTT的下限
+                5. 收费相关的rating criteria
+                    1. 价格
+                    2. Traffic volume caps
+                6. 需要注意的
+                    1. ALTO service并不是admission control system
+                    2. ALTO可能获取不到瞬时的交通雍塞
+                    3. ALTO service可能不知道所有的链路带宽，bottleneck在哪
+                    4. 可能不知道实际路由的所有信息
+                    5. ALTO不知道候选ep是否过载
+                    6. ALTO不知道候选ep是否对带宽有限制
+                7. 需要避免的
+                    1. 与瞬时拥塞相关的performance metrics
+                    2. Performance metrics和隐私相关
+    3. ALTO的限制以及解决方案
+        1. Map-Based Services
+            1. ISP重新分配IP子网
+            2. ISP短时间内重新分配子网
+            3. IP prefix blocks may be assigned to a router that serves a variety of access networks
+            4. 价钱的计算取决于ISP的路由和traffic engineering
+            5. 解决方案：SSE
+        2. Non-Map-Based Services
+            1. 经常请求ECS会使得ALTO server过载
+            2. 解决方法 ALTO-H12 Caching of IP addresses at the ALTO client or the use of the H12 approach [ALTO-H12] in conjunction with caching may lower the query load on the ALTO server
+            3. 尽可能的回答
+            4. 请求另外一个拥有更好信息的ALTO server
+            5. redirect到另外一个更好信息的ALTO server
+    4. 监视ALTO
+        1. 为什么要监视
+            1. assess the benefits of ALTO as part of the management and operations 想要看使用ALTO之后有什么好处
+            2. 研究ALTO的影响，能够进一步优化ALTO
+        2. 要监视ALTO带来的影响 (网络本身、应用程序，应用程序的信息难获取)
+            1. Total amount and distribution of traffic
+            2. Application performance
+        3. 系统和服务的性能（ALTO服务器本身的）
+            1. Requests and responses for each service listed in an Information Directory (total counts and size in bytes)
+            2. CPU和memory utilization
+            3. ALTO map updates
+            4. PIDs数量
+            5. ALTO map大小
+        4. 监视基础设施
+            1. Network monitoring and performance management systems
+            2. Applications/clients
+            3. ALTO server里的log files
+            4. 其他应用的实体
+    5. 抽象Map的例子
+        1. 小型的ISP
+            1. requirement：减少跨不同运营商的流量
+            2. cost map/ecs 同一个管理域的cost比不同管理域的cost低
+            3. network map 按照网段
+        2. 有几个Fixed-Access Networks的ISP（several access networks和一个core network）
+            1. requirement
+                1. 减少P2P traffic在骨干网络上
+                2. 减少P2P traffic跨不同的运营商
+            2. 怎么做？
+        3. ISP with Fixed and Mobile Network
+            1. requirement
+                1. 少用mobile traffic，多用fixed traffic
+    6. Map计算的例子
+        1. 需要补充IGP BGP中的metric是什么含义
+        2. group function/ cost function/ tiebreaker function
+        3. Network Map生成 根据host name
+        4. Cost Map 根据the minimum number of hops necessary to get from the endpoints in the source PID to endpoints in the destination PID.  Our chosen tiebreaker selects the minimum hop count when more than one value is returned by the cost function.
+    7. 部署经验（从这四个方面谈问题）
+        1. 数据收集 
+        2. 数据处理
+        3. Network map计算
+        4. Cost map计算
+
+
+
