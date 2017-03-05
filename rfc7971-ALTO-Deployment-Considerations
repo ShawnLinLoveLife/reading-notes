@@ -135,4 +135,18 @@ ALTO 目标 让应用程序在一些候选通信主机中选择一个或者几�
         4. Cost map计算
 
 
-
+4. CDN的部署考虑
+    1. 带来好处
+        1. improve a CDN surrogate or origin selection
+        2. provide additional control to the ISP over how their network map/cost is exposed
+        3. routing plane and network map computation functions分离
+            1. 控制拓扑的抽象层级
+            2. ALTO server能够添加更多的限制
+            3. CDN不会得到本不应该得到的信息 比如路由信息
+    2. 部署的建议 ATLO server提供什么给CDN
+        1. ISP给CDN提供network map和cost information
+        2. ISP给CDN提供ECS
+    3. Guidance Considerations CDN怎么使用ALTO services
+        1. ALTO提供ISP end-user可达性给CDN (Network map) 某个host从哪里接入
+        2. 要用哪一个surrogate
+        3. CDNI-FCI 需要进一步了解
